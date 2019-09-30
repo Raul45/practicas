@@ -1,6 +1,6 @@
 # App podcasts
 
-![Captura del reproductor](./.readme-static/ejemplo.jpg)
+![Captura del reproductor](./.read-static/ejemplo.jpg)
 
 ## ¿Cómo funciona?
 
