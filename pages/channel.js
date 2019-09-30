@@ -1,16 +1,26 @@
 import Link from 'next/link'
-
+import Error from './_error'
+import PodcastListWithClick from '../components/PodcastListWithClick'
+import PodcastPlayer from '../components/PodcastPlayer'
 export default class extends React.Component {
 
-  static async getInitialProps({ query }) {
+  constructor(props){
+    super(props)
+    this.state = {openPodcast:null}
+  }
+  static async getInitialProps({ query,res }) {
     let idChannel = query.id
-
+    try{
     let [reqChannel, reqSeries, reqAudios] = await Promise.all([
       fetch(`https://api.audioboom.com/channels/${idChannel}`).catch(error=>error),
       fetch(`https://api.audioboom.com/channels/${idChannel}/child_channels`).catch(error=>error),
       fetch(`https://api.audioboom.com/channels/${idChannel}/audio_clips`).catch(error=>error)
     ])
 
+    if(reqChannel.statusCode >= 400){
+      return{channel:null, audioClips:null, series: null, statusCode: 404}
+      
+    }
     let dataChannel = await reqChannel.json()
     let channel = dataChannel.body.channel
 
@@ -20,16 +30,42 @@ export default class extends React.Component {
     let dataSeries = await reqSeries.json()
     let series = dataSeries.body.channels
 
-    return { channel, audioClips, series }
+    return { channel, audioClips, series, statusCode:200 }
+  }catch(e){
+    res.statusCode = 503
+    return{channel:null, audioClips:null, series: null, statusCode: 503}
+  }
+}
+openPodcast = (event, podcast) =>{
+      event.preventDefault();
+      this.setState({
+        openPodcast: podcast
+      });
+}
+  closePodcast = (event) =>{
+    event.preventDefault()
+    this.setState({
+      openPodcast:null
+    })
   }
 
   render() {
-    const { channel, audioClips, series } = this.props
+    const { channel, audioClips, series, statusCode } = this.props
+    const {openPodcast} = this.state;
+
+
+    if(statusCode !==200){
+      return <Error statusCode={statusCode} />
+    }
 
     return <div>
       <header>Podcasts</header>
 
       <div className="banner" style={{ backgroundImage: `url(${channel.urls.banner_image.original})` }} />
+
+    {openPodcast && <div className='modal'>
+      <PodcastPlayer clip={openPodcast} onClose={ this.closePodcast } />
+    </div>}
 
       <h1>{ channel.title }</h1>
 
@@ -50,9 +86,9 @@ export default class extends React.Component {
       }
 
       <h2>Ultimos Podcasts</h2>
-      { audioClips.map((clip) => (
-        <div className="podcast" key={clip.id}>{ clip.title }</div>
-      ))}
+    <PodcastListWithClick podcasts={audioClips}
+      onClickPodcast={this.openPodcast}
+    />
 
 
       <style jsx>{`
@@ -99,7 +135,14 @@ export default class extends React.Component {
           margin: 0;
           text-align: center;
         }
-
+        .modal{
+          position:fixed;
+          top:0;
+          left:0;
+          right:0;
+          bottom:0;
+          z-index:99999;
+        }
         .podcast {
           display: block;
           text-decoration: none;
